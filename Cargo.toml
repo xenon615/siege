@@ -14,11 +14,11 @@ codegen-units = 1
 
 
 [dependencies]
-bevy-inspector-egui= "0.26"
+# bevy-inspector-egui= "0.26"
 avian3d = "0.1.2"
 bevy_gltf_components = "0.6"
 bevy_registry_export = "0.4"
-bevy_panorbit_camera= "0.19.3"
+# bevy_panorbit_camera= "0.19.3"
 fastrand = "2.1.1"
 
 [dependencies.bevy]
@@ -53,6 +53,6 @@ features = [
     # "webgl2",
     
     # optional ---
-    "dynamic_linking",  #FOR DEBUG!!!
+    # "dynamic_linking",  #FOR DEBUG!!!
 ]
 

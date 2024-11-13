@@ -12,7 +12,7 @@ use avian3d::{
 
 use bevy_gltf_components::ComponentsFromGltfPlugin;
 use bevy_registry_export::ExportRegistryPlugin;
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
+// use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 mod camera;
 mod camera_target;

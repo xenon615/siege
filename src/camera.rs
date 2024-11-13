@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::core_pipeline::Skybox;
 use bevy::render::camera::{Exposure, PhysicalCameraParameters};
-use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
+// use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 
 // ---
 
@@ -10,7 +10,7 @@ impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app
         .add_systems(Startup, spawn) 
-        .add_plugins(PanOrbitCameraPlugin)
+        // .add_plugins(PanOrbitCameraPlugin)
         ;
     }
 } 
