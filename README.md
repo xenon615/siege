@@ -13,4 +13,4 @@ Then we'll draw this thing in Blender.
 
 Well, then, we'll take a little bit of Bevy, a little bit of Avian3d and a little bit of our brains (just a little bit ;)).
 
-
+![Scene](img/image-1.png)
