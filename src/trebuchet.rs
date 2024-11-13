@@ -1,5 +1,7 @@
-use bevy::{gizmos::gizmos, input::keyboard::KeyboardInput, math::VectorSpace, prelude::*};
-use avian3d::{math::PI, prelude::*};
+use std::time::Duration;
+
+use bevy::{gizmos::gizmos, input::keyboard::KeyboardInput,prelude::*};
+use avian3d::prelude::*;
 
 use crate::{GameState, NotReady};
 pub struct TrebuchetPlugin;
@@ -13,15 +15,15 @@ impl Plugin for TrebuchetPlugin {
         .register_type::<Bar>()
 
         .add_systems(Startup, startup)
-        .add_systems(Update, setup.run_if(in_state(GameState::Loading)))
-        .add_systems(Update, key_control.run_if(on_event::<KeyboardInput>()))
-        .add_systems(Update, do_tension.run_if(any_with_component::<State_Tension>))
+        .add_systems(Update, (explore, setup).run_if(in_state(GameState::Loading)))
+        .add_systems(Update, do_tension.run_if(any_with_component::<StateTension>))
         .add_systems(Update, do_arming.run_if(on_event::<CollisionEnded>()))
-        .add_systems(Update, do_loose.run_if(any_with_component::<State_Loose>))
+        .add_systems(Update, do_loose.run_if(any_with_component::<StateLoose>))
+        .add_systems(Update, (reload, despawn_ball).run_if(any_with_component::<Interval>))
 
+
+        .observe(enter_idle)
         .observe(enter_tension)
-        .observe(exit_tension)
-        .observe(enter_arming)
         ;
     }
 }
@@ -58,19 +60,16 @@ pub struct  SlingEnd;
 pub struct  Ball;
 
 #[derive(Component)]
-pub struct  PivotJoint;
+pub struct StateIdle;
 
 #[derive(Component)]
-pub struct State_Idle;
+pub struct StateTension;
 
 #[derive(Component)]
-pub struct State_Tension;
+pub struct StateArming;
 
 #[derive(Component)]
-pub struct State_Arming;
-
-#[derive(Component)]
-pub struct State_Loose;
+pub struct StateLoose;
 
 #[derive(Component)]
 pub struct Focused;
@@ -84,63 +83,78 @@ pub struct Parts {
     se: Entity,
     arm: Entity,
     bar: Entity, 
+    cw: Entity,
     link: Option<Entity>
 }
 
+#[derive(Component)]
+pub struct Interval(Timer);
+
+// -- CONSTANTS --
+pub const BALL_DENSITY: f32 = 6.5;
+pub const BALL_RADIUS: f32 = 0.65;
+
 const ARM_DIM: Vec3 =  Vec3::new(1., 1., 15.);
+const CW_DENSITY: f32 =  8.0;
+const PIVOT_DAMPING: f32 = 0.1; 
+const PIVOT_OFFSET: f32 = ARM_DIM.z  * 0.3; 
+const ARM_LONG_END_Y: f32 = 3.0;
+
+const SLING_ELEMENT_DENSITY: f32 = 100.;
+const SLING_ELEMENT_COUNT: u32 = 8;
+const SLING_LEN: f32 = ARM_DIM.z * 0.75;
+const UNHOOKING_DOT: f32 = 0.96;
+
+const TREBUCHET_DIM: Vec3 = Vec3::new(4., 10., 16.);  // ROUGLY
+
 
 // ---
 
 fn startup(
     mut cmd: Commands,
     assets: ResMut<AssetServer>
-
 ) {
-    cmd.spawn((
-        SceneBundle {
-            scene: assets.load(GltfAssetLabel::Scene(0).from_asset("models/trebuchet.glb")),
-            transform: Transform::from_xyz(0., 0., 0.)
-            .with_rotation(Quat::from_rotation_y(PI))
-            ,
-            ..default()
-        },
-        NotReady,
-        Trebuchet,
-        Name::new("Trebuchet"),
-        RigidBody::Static,
-        Focused,
-        // ColliderConstructorHierarchy::new(None)
-        // .with_constructor_for_name("m_bar_slope", ColliderConstructor::TrimeshFromMesh),
-        State_Idle,
-    ));
+    let asset_handle = assets.load(GltfAssetLabel::Scene(0).from_asset("models/trebuchet.glb"));
+    let mut x = 0.;
+    for i in 0..1 {
+        x += 20. * i as f32 * (if i % 2 == 0 {1.} else {-1.});
+        cmd.spawn((
+            SceneBundle {
+                scene: asset_handle.clone(),
+                transform: Transform::from_xyz(x, 0.1, 0.)
+                ,
+                ..default()
+            },
+            NotReady,
+            Trebuchet,
+            Name::new("Trebuchet"),
+            RigidBody::Static,
+            Focused,
+            StateIdle,
+        ));
+    }
 }
 
 // ---
 
-fn setup(
-    trebuchet_q: Query<Entity, (With<Trebuchet>, With<NotReady>)>,
-    arm_q: Query<(Entity, &Transform), With<Arm>>,
+fn explore(
+    treb_q: Query<Entity, (With<Trebuchet>, With<NotReady>, Without<Parts>)>,
+    arm_q: Query<Entity, With<Arm>>,
     pivot_q: Query<Entity, With<Pivot>>,
     cw_q: Query<Entity, With<CounterWeight>>,
     bar_q: Query<Entity, With<Bar>>,
-    mut cmd: Commands,
     children: Query<&Children>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials : ResMut<Assets<StandardMaterial>>,
-
+    mut cmd: Commands,
 ) {
-
-    for parent_e in trebuchet_q.iter() {
+    for treb_e in treb_q.iter() {
         let mut e_arm = Entity::PLACEHOLDER;
         let mut e_pivot = Entity::PLACEHOLDER;
         let mut e_cw = Entity::PLACEHOLDER;
         let mut e_bar = Entity::PLACEHOLDER;
-        let mut arm_pos = Vec3::ZERO;
 
-        for c in children.iter_descendants(parent_e) {
-            if let Ok((arm, arm_t)) =  arm_q.get(c) {
+        for c in children.iter_descendants(treb_e) {
+            if let Ok(arm) =  arm_q.get(c) {
                 e_arm = arm;
-                arm_pos = arm_t.translation;
             }
             if let Ok(pivot) =  pivot_q.get(c) {
                 e_pivot = pivot
@@ -155,13 +169,39 @@ fn setup(
             }
 
         }
-        if e_arm == Entity::PLACEHOLDER || e_pivot == Entity::PLACEHOLDER  || e_cw == Entity::PLACEHOLDER {
+        if  e_arm == Entity::PLACEHOLDER || e_pivot == Entity::PLACEHOLDER || 
+            e_cw == Entity::PLACEHOLDER || e_bar == Entity::PLACEHOLDER  {
             continue;
         }
 
+        cmd.entity(treb_e).insert(Parts{
+            se: Entity::PLACEHOLDER,
+            pivot: e_pivot,
+            arm: e_arm,
+            bar: e_bar,
+            cw: e_cw,
+            link: None            
+        });
+        info!("trebuchet {:?} explored ", treb_e);
+    }
+
+}
+
+// ---
+
+fn setup(
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials : ResMut<Assets<StandardMaterial>>,
+    mut treb_q: Query<(Entity, &mut Parts), (Added<Parts>,With<Trebuchet>, With<NotReady>)>,
+    arm_q: Query<&Transform, With<Arm>>,
+    mut cmd: Commands,
+) {
+
+    for (treb_e, mut parts) in treb_q.iter_mut() {
+
         // ARM ============================================================
     
-        cmd.entity(e_arm)
+        cmd.entity(parts.arm)
         .insert((
             RigidBody::Dynamic,
             // RigidBody::Static,
@@ -170,54 +210,50 @@ fn setup(
         let anchor_arm = Vec3::Z *  ARM_DIM.z * 0.5;
 
         // PIVOT ===========================================================
-
-        let pivot_offset = ARM_DIM.z  * 0.3;
-        cmd.entity(e_pivot).insert(RigidBody::Static);
+        
+        cmd.entity(parts.pivot).insert(RigidBody::Static);
 
         let joint_id = cmd.spawn((
-            RevoluteJoint::new(e_pivot, e_arm)
+            RevoluteJoint::new(parts.pivot, parts.arm)
             .with_aligned_axis(Vec3::X)
-            .with_local_anchor_2(-Vec3::Z * pivot_offset)
-            .with_angular_velocity_damping(10.)
+            .with_local_anchor_2(-Vec3::Z * PIVOT_OFFSET)
+            .with_angular_velocity_damping(PIVOT_DAMPING)
             ,
-            PivotJoint
         )).id();
 
-        cmd.entity(parent_e).add_child(joint_id);
+        cmd.entity(treb_e).add_child(joint_id);
 
         // CW ==============================================================
 
-        cmd.entity(e_cw)
+        cmd.entity(parts.cw)
         .insert((
             RigidBody::Dynamic,
-            // RigidBody::Static,
-            MassPropertiesBundle::new_computed(&Collider::cylinder(4., 2.), 10.)
+            MassPropertiesBundle::new_computed(&Collider::cylinder(4., 2.), CW_DENSITY)
         ));
             
         let joint_id = cmd.spawn(
-            RevoluteJoint::new(e_arm, e_cw)
+            RevoluteJoint::new(parts.arm, parts.cw)
             .with_aligned_axis(Vec3::X)
             .with_local_anchor_1(-anchor_arm)
-            .with_local_anchor_2(Vec3::Y * 1.5)
+            .with_local_anchor_2(Vec3::Y)
         ).id();
 
-        cmd.entity(parent_e).add_child(joint_id);
+        cmd.entity(treb_e).add_child(joint_id);
 
         // SLING ============================================================
-        
-        let sling_len = ARM_DIM.z * 0.8;
-        let element_count = 4;
-        let element_dim = Vec3::new(0.1, 0.1, sling_len / element_count as f32);
+
+        let arm_pos = arm_q.get(parts.arm).unwrap().translation;
+        let element_dim = Vec3::new(0.1, 0.1, SLING_LEN / SLING_ELEMENT_COUNT as f32);
         let anchor_element = Vec3::Z * element_dim.z / 2.;
         let element_mesh = meshes.add(Cuboid::from_size(element_dim));
         let element_mat = materials.add(Color::BLACK);
 
         let mut pos = arm_pos +  anchor_arm + anchor_element; 
 
-        let mut prev_element_id = e_arm;
+        let mut prev_element_id = parts.arm;
         
 
-        for i in 0 .. element_count {
+        for i in 0 .. SLING_ELEMENT_COUNT {
             let element_id = cmd.spawn((
                 MaterialMeshBundle {
                     transform: Transform::from_translation(pos),
@@ -228,9 +264,9 @@ fn setup(
                 RigidBody::Dynamic,
                 MassPropertiesBundle::new_computed(
                     &Collider::cuboid(element_dim.x, element_dim.y, element_dim.z), 
-                50.),
+                SLING_ELEMENT_DENSITY),
             )).id();
-            cmd.entity(parent_e).add_child(element_id);
+            cmd.entity(treb_e).add_child(element_id);
 
             let joint_id = cmd.spawn(
                 SphericalJoint::new(prev_element_id, element_id)
@@ -238,7 +274,7 @@ fn setup(
                 .with_local_anchor_2(-anchor_element)
             ).id();
             
-            cmd.entity(parent_e).add_child(joint_id);
+            cmd.entity(treb_e).add_child(joint_id);
 
             prev_element_id  = element_id;
             pos += 2. * anchor_element;
@@ -246,7 +282,7 @@ fn setup(
         
         // ENDING =======================================================================
         
-        let ending_radius = 0.2;
+        let ending_radius = 0.1;
         let ending_id = cmd.spawn((
             MaterialMeshBundle {
                 transform: Transform::from_translation(pos - anchor_element - Vec3::Z * ending_radius),
@@ -257,86 +293,60 @@ fn setup(
             RigidBody::Dynamic,
             Restitution::new(0.).with_combine_rule(CoefficientCombine::Min),
             Friction::new(0.).with_combine_rule(CoefficientCombine::Min),
-            Collider::sphere(ending_radius),
+            Collider::sphere(ending_radius * 5.),
             CollisionMargin(0.1),
             SlingEnd
         ))
         .id()
         ;
-        cmd.entity(parent_e).add_child(ending_id);
+        cmd.entity(treb_e).add_child(ending_id);
 
-        // let joint_id = cmd.spawn((
-        //     RevoluteJoint::new(prev_element_id, ending_id)
-        //     .with_aligned_axis(Vec3::X)
-        //     .with_local_anchor_1(anchor_element)
-        //     .with_compliance(0.),
-        // )).id();
-
-        let joint_id = cmd.spawn((
-            RevoluteJoint::new(prev_element_id, ending_id)
+        let joint_id = cmd.spawn(
+            SphericalJoint::new(prev_element_id, ending_id)
             .with_local_anchor_1(anchor_element)
-            .with_compliance(0.),
-        )).id();
+        ).id();
 
-        cmd.entity(parent_e).add_child(joint_id);
+        cmd.entity(treb_e).add_child(joint_id);
 
-    // ---
-
-        cmd.entity(parent_e).remove::<NotReady>();
+        parts.se = ending_id;    
+        cmd.entity(treb_e).remove::<NotReady>();
+        info!("trebuchet {:?} setted ", treb_e );
         
-        cmd.entity(parent_e).insert(Parts{
-            se: ending_id,
-            pivot: e_pivot,
-            arm: e_arm,
-            bar: e_bar,
-            link: None            
-        });
     }
 } 
 
 // ---
 
-fn key_control(
-    keys: Res<ButtonInput<KeyCode>>,
-    t_q: Query<Entity, (With<Trebuchet>, With<Focused>)>,
-    mut cmd: Commands
+fn enter_idle(
+    trigger: Trigger<OnAdd, StateIdle>,
+    mut cmd: Commands,
 ) {
-
-    let Ok(t_e) =  t_q.get_single() else {
-        return;
-    };
-
-    if keys.just_pressed(KeyCode::ArrowDown) {
-        cmd.entity(t_e)
-        .remove::<State_Idle>()
-        .insert(State_Tension);
-    }
-
+    cmd.entity(trigger.entity()).insert(
+        Interval(Timer::new(Duration::from_secs(fastrand::u64(5..10)), TimerMode::Once))
+    );
 }
 
 // ---
 
 fn enter_tension(
-    trigger: Trigger<OnAdd, State_Tension>,
+    trigger: Trigger<OnAdd, StateTension>,
     mut treb_q: Query<&mut Parts>,
-    mut pivot_q: Query<&mut RevoluteJoint>,
     mut cmd: Commands,
 ) {
-    let Ok(mut parts) = treb_q.get_mut (trigger.entity()) else {
+    let treb_e = trigger.entity();
+    let Ok(mut parts) = treb_q.get_mut(treb_e) else {
         return;
     };
-    if let Ok(mut rj) = pivot_q.get_mut(parts.pivot) {
-        rj.damping_angular = 1000.0;
-    }
-    println!("enter_tension");
+    
     let joint_id = cmd.spawn((
         DistanceJoint::new(parts.se, parts.bar)
         .with_limits(0.1, 20.)
-        .with_local_anchor_2(Vec3::Z * 8.  + Vec3::Y)
+        .with_local_anchor_2(Vec3::Z * TREBUCHET_DIM.z * 0.5 + Vec3::Y)
         ,
         Link
     )).id();
     parts.link = Some(joint_id);
+    info!("trebuchet {:?} entered tension ", treb_e);
 }
 
 // ---
@@ -347,36 +357,37 @@ fn do_tension(
     mut link_q: Query<&mut DistanceJoint, With<Link>>,
     mut cmd: Commands,
 ) {
-    for (treb_ent, treb_parts)  in treb_q.iter() {
+    for (treb_e, treb_parts)  in treb_q.iter() {
         let Ok(arm_t) = arm_q.get(treb_parts.arm) else {
             continue;
         };
-
+      
         let arm_long_end_y = (arm_t.translation - arm_t.forward() * ARM_DIM.z * 0.5).y;
-        if arm_long_end_y -1. < 0. {
-            cmd.entity(treb_ent)
-            .remove::<State_Tension>()
-            .insert(State_Arming)
+        if arm_long_end_y  < ARM_LONG_END_Y {
+            cmd.entity(treb_e)
+            .remove::<StateTension>()
+            .insert(StateArming)
             ;
+            info!("trebuchet {:?} exited tension  ", treb_e);
+            continue;
         }
-
         let Some(link_e) = treb_parts.link else {
             continue;
         };
         let Ok(mut joint)  =  link_q.get_mut(link_e) else {
             continue;
         }; 
-
         let Some(limits) = joint.length_limits else {
             continue;
         };
 
         let j = DistanceJoint::new(joint.entity1, joint.entity2)
                 .with_local_anchor_1(joint.local_anchor1);
+
         if limits.max > 1. {
             *joint = j
             .with_local_anchor_2(joint.local_anchor2)
-            .with_limits(limits.min, limits.max - 0.05)
+            .with_limits(joint.rest_length + 1., limits.max - 0.05)
             ;
         } else {
             *joint = j
@@ -386,53 +397,6 @@ fn do_tension(
     
         }
     }
-}
-
-// ---
-
-fn exit_tension(
-    trigger: Trigger<OnRemove, State_Tension>,
-    treb_q: Query<&Parts>,
-    mut pivot_q: Query<&mut RevoluteJoint>,
-) {
-    println!("exit tension");
-    let Ok(parts) = treb_q.get(trigger.entity()) else {
-        return;
-    };
-    if let Ok(mut rj) = pivot_q.get_mut(parts.pivot) {
-        rj.damping_angular = 0.1;
-    }
-}
-
-// ----
-
-fn enter_arming(
-    trigger: Trigger<OnAdd, State_Arming>,
-    treb_q: Query<&Transform>,
-    mut cmd: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
-    let ball_radius = 0.5;
-
-    let Ok(trans) = treb_q.get(trigger.entity()) else {
-        return;
-    };
-
-    cmd.spawn((
-        MaterialMeshBundle {
-            transform: Transform::from_translation(trans.translation.with_y(5.) - Vec3::Z * 5.),
-            mesh: meshes.add(Sphere::new(ball_radius)),
-            material: materials.add(Color::WHITE),
-            ..default()
-        }, 
-        RigidBody::Dynamic,
-        Restitution::new(0.).with_combine_rule(CoefficientCombine::Min),
-        Friction::new(0.).with_combine_rule(CoefficientCombine::Min),
-        Collider::sphere(ball_radius),
-        ExternalForce::new(Vec3::Z * 0.5),
-        Ball
-    ));
 }
 
 // ---
@@ -450,8 +414,9 @@ fn do_arming(
         if  se_q.contains(*e1)  &&  ball_q.contains(*e2) ||
             se_q.contains(*e2)  &&  ball_q.contains(*e1)
          {
-            let se_e = if se_q.contains(*e1) {e1} else {e2};
-            for p in parent_q.iter_ancestors(*se_e) {
+            let (se_e, ball_e) = if se_q.contains(*e1) {(*e1, *e2)} else {(*e2, *e1)};
+
+            for p in parent_q.iter_ancestors(se_e) {
                 if let Ok(parts) =  parts_q.get(p) {
 
                     let Some(link_e) = parts.link else {
@@ -459,15 +424,26 @@ fn do_arming(
                     };
 
                     cmd.entity(link_e)
-                    .remove::<DistanceJoint>()
-                    .insert(FixedJoint::new(*e1, *e2));
+                    .insert(
+                        DistanceJoint::new(se_e, ball_e)
+                        .with_rest_length(BALL_RADIUS * 2.)
+                        .with_compliance(0.001)
+                        .with_linear_velocity_damping(1000.)
+                    );
 
                     cmd.entity(p)
-                    .remove::<State_Arming>()
-                    .insert(State_Loose);
+                    .remove::<StateArming>()
+                    .insert(StateLoose);
+
+                    cmd.entity(ball_e).insert(
+                        Interval(Timer::new(Duration::from_secs(fastrand::u64(15..25)), TimerMode::Once))
+                    )
+                    .insert(LinearVelocity(Vec3::ZERO))
+                    ;
+                    info!("trebuchet {:?} armed ", p);
                 }
             }
-            println!("booch!");
+            
         }
     }    
 }
@@ -480,21 +456,60 @@ fn do_loose(
     se_q: Query<&GlobalTransform>,
 ) {
 
-    for (treb_ent, mut treb_parts, treb_t)  in treb_q.iter_mut() {
+    for (treb_e, mut treb_parts, treb_t)  in treb_q.iter_mut() {
         
         let Ok(se_t) = se_q.get(treb_parts.se) else {
+            continue;
+        };
+        let Some(link) = treb_parts.link else {
             continue;
         };
 
         let center = treb_t.translation  + Vec3::Y * 5.;
         let to_se = (se_t.translation() - center).normalize();
         let dot = to_se.dot(Vec3::Y);
-        if dot > 0.95 {
-            cmd.entity(treb_parts.link.unwrap()).despawn();
-            cmd.entity(treb_ent)
-            .remove::<State_Loose>()
-            .insert(State_Idle);
+        if dot > UNHOOKING_DOT {
+            cmd.entity(link).despawn();
+            cmd.entity(treb_e)
+            .remove::<StateLoose>()
+            .insert(StateIdle)
+            ;
             treb_parts.link = None;
         } 
+    }
+}
+
+// ---
+
+fn reload(
+    mut t_q: Query<(Entity, &mut Interval), With<Trebuchet>>,
+    mut cmd: Commands,
+    time: Res<Time>
+) {
+    for (e, mut interval) in & mut t_q {
+        interval.0.tick(time.delta());
+        if interval.0.finished() {
+            cmd.entity(e)
+            .remove::<StateIdle>()
+            .remove::<Interval>()
+            .insert(StateTension)
+            ;
+        }
+    }
+}
+
+// ---
+
+fn despawn_ball(
+    mut t_q: Query<(Entity, &mut Interval), With<Ball>>,
+    mut cmd: Commands,
+    time: Res<Time>
+) {
+    for (e, mut interval) in & mut t_q {
+        interval.0.tick(time.delta());
+        if interval.0.finished() {
+            info!("ball despawned");
+            cmd.entity(e).despawn_recursive();
+        }
     }
 }

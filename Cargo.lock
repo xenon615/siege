@@ -3474,6 +3474,7 @@ dependencies = [
  "bevy_gltf_components",
  "bevy_panorbit_camera",
  "bevy_registry_export",
+ "fastrand",
 ]
 
 [[package]]

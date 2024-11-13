@@ -1,7 +1,7 @@
 use bevy::{
     prelude::*, window::{
-        // WindowMode, 
-        // WindowPosition, 
+        WindowMode, 
+        WindowPosition, 
         WindowResolution
     }
 };
@@ -15,8 +15,12 @@ use bevy_registry_export::ExportRegistryPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 mod camera;
+mod camera_target;
 mod env;
 mod trebuchet;
+mod trebuchet_loader;
+mod field;
+mod dummies;
 
 // ---
 
@@ -34,26 +38,31 @@ pub struct NotReady;
 
 fn main() {
     App::new()
+    .insert_resource(ClearColor(Color::BLACK))
     .add_plugins((
         DefaultPlugins.set(
             WindowPlugin {
                 primary_window : Some(Window {
-                    // resolution : WindowResolution::new(1400., 900.),
-                    // mode: WindowMode::BorderlessFullscreen,
-                    position: WindowPosition::Centered(MonitorSelection::Primary),
+                    resolution : WindowResolution::new(1400., 900.),
+                    mode: WindowMode::BorderlessFullscreen,
+                    // position: WindowPosition::Centered(MonitorSelection::Primary),
                     ..default()
                 }),
                 ..default()
             },
         ),
         PhysicsPlugins::default(),
-        PhysicsDebugPlugin::default(),
+        // PhysicsDebugPlugin::default(),
         ComponentsFromGltfPlugin{legacy_mode: false},
         ExportRegistryPlugin::default(),
-        WorldInspectorPlugin::new(),
+        // WorldInspectorPlugin::new(),
         camera::CameraPlugin,
+        camera_target::CameraTargetPlugin,
         env::EnvPlugin,
-        trebuchet::TrebuchetPlugin
+        trebuchet::TrebuchetPlugin,
+        trebuchet_loader::TrebuchetLoaderPlugin,
+        field::FieldPlugin,
+        dummies::DummiesPlugin,
     ))
     .init_state::<GameState>()
     .add_systems(Update, check_ready.run_if(in_state(GameState::Loading)))
