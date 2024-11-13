@@ -11,6 +11,6 @@ Then we'll draw this thing in Blender.
 ![Trebuchet](img/image.png)  
 
 
-Well, then, we'll take a little bit of Bevi, a little bit of Avian3d and a little bit of our brains (just a little bit).
+Well, then, we'll take a little bit of Bevy, a little bit of Avian3d and a little bit of our brains (just a little bit).
 
 
