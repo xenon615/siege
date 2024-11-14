@@ -1,0 +1,21 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href="css/style.css">
+<head>
+<body style="margin: 0px;">
+    <h2>Siege</h2>
+    <div id="game-container">
+        <canvas id="siege-canvas" width="1280" height="720"></canvas>
+    </div>
+    <script type="module">
+        import init from './siege.js'
+        init().catch((error) => {
+            if (!error.message.startsWith("Using exceptions for control flow, don't mind me. This isn't actually an error!")) {
+                throw error;
+            }
+        });
+    </script>
+</body>
+
+</html>
