@@ -11,22 +11,22 @@ opt-level = 3
 
 [profile.release]
 codegen-units = 1
-opt-level = 'z' # wasm less size 
+# opt-level = 'z' # wasm less size 
 
 
 [dependencies]
 # bevy-inspector-egui= "0.26"
 avian3d = "0.1.2"
 bevy_gltf_components = "0.6"
-# bevy_registry_export = "0.4"
-# bevy_panorbit_camera= "0.20.0"
+bevy_registry_export = "0.4"
+bevy_panorbit_camera= "0.20.0"
 fastrand = "2.1.1"
 
 [dependencies.bevy]
 version="0.14.2"
 default-features = false
 features = [
-    "animation",
+    # "animation",
     "bevy_asset",
     # "bevy_audio",
     "bevy_state",
@@ -38,8 +38,8 @@ features = [
     "bevy_gltf",
     "bevy_render",
     # "bevy_sprite",
-    "bevy_text",
-    "bevy_ui",
+    # "bevy_text",
+    # "bevy_ui",
     "png",
     # "jpeg",
     #"ktx2",   # Preferred format for GPU textures
@@ -51,10 +51,11 @@ features = [
     # "android_shared_stdcxx",
     "tonemapping_luts",
     "default_font",
-    "webgl2",
+    # "webgl2",
     
     # optional ---
-    # "dynamic_linking",  #FOR DEBUG!!!
+    "dynamic_linking",  #FOR DEBUG!!!
 ]
 
 #wasm-bindgen --no-typescript --target web  --out-dir E:\dev\sources\rust\bevy\siege-web   --out-name "siege"  ./target/wasm32-unknown-unknown/release/siege.wasm
+# cargo build --target wasm32-unknown-unknown --release
