@@ -15,7 +15,6 @@ use bevy_registry_export::ExportRegistryPlugin;
 // use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 mod camera;
-mod camera_target;
 mod env;
 mod trebuchet;
 mod trebuchet_loader;
@@ -44,8 +43,8 @@ fn main() {
             WindowPlugin {
                 primary_window : Some(Window {
                     resolution : WindowResolution::new(1400., 900.),
-                    mode: WindowMode::BorderlessFullscreen,
-                    // position: WindowPosition::Centered(MonitorSelection::Primary),
+                    // mode: WindowMode::BorderlessFullscreen,
+                    position: WindowPosition::Centered(MonitorSelection::Primary),
                     ..default()
                 }),
                 ..default()
@@ -57,7 +56,6 @@ fn main() {
         ExportRegistryPlugin::default(),
         // WorldInspectorPlugin::new(),
         camera::CameraPlugin,
-        camera_target::CameraTargetPlugin,
         env::EnvPlugin,
         trebuchet::TrebuchetPlugin,
         trebuchet_loader::TrebuchetLoaderPlugin,

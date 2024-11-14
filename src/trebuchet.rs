@@ -20,8 +20,6 @@ impl Plugin for TrebuchetPlugin {
         .add_systems(Update, do_arming.run_if(on_event::<CollisionEnded>()))
         .add_systems(Update, do_loose.run_if(any_with_component::<StateLoose>))
         .add_systems(Update, (reload, despawn_ball).run_if(any_with_component::<Interval>))
-
-
         .observe(enter_idle)
         .observe(enter_tension)
         ;
@@ -72,9 +70,6 @@ pub struct StateArming;
 pub struct StateLoose;
 
 #[derive(Component)]
-pub struct Focused;
-
-#[derive(Component)]
 pub struct Link;
 
 #[derive(Component)]
@@ -85,6 +80,25 @@ pub struct Parts {
     bar: Entity, 
     cw: Entity,
     link: Option<Entity>
+}
+
+impl Parts {
+    fn is_explored(&self) -> bool {
+        self.arm != Entity::PLACEHOLDER && 
+        self.pivot != Entity::PLACEHOLDER && 
+        self.cw != Entity::PLACEHOLDER && 
+        self.bar!= Entity::PLACEHOLDER
+    }
+
+    fn new() -> Self{
+        Self {pivot: Entity::PLACEHOLDER,
+            se: Entity::PLACEHOLDER,
+            arm: Entity::PLACEHOLDER,
+            bar: Entity::PLACEHOLDER, 
+            cw: Entity::PLACEHOLDER,
+            link: None
+        }
+    }
 }
 
 #[derive(Component)]
@@ -105,7 +119,7 @@ const SLING_ELEMENT_COUNT: u32 = 8;
 const SLING_LEN: f32 = ARM_DIM.z * 0.75;
 const UNHOOKING_DOT: f32 = 0.96;
 
-const TREBUCHET_DIM: Vec3 = Vec3::new(4., 10., 16.);  // ROUGLY
+const TREBUCHET_DIM: Vec3 = Vec3::new(4., 8., 16.);  // ROUGLY
 
 
 // ---
@@ -116,12 +130,16 @@ fn startup(
 ) {
     let asset_handle = assets.load(GltfAssetLabel::Scene(0).from_asset("models/trebuchet.glb"));
     let mut x = 0.;
-    for i in 0..1 {
-        x += 20. * i as f32 * (if i % 2 == 0 {1.} else {-1.});
+    let mut z = 0.;
+    for i in 0..10 {
+        x += 10. * i as f32 * (if i % 2 == 0 {1.} else {-1.});
+        if i % 10 == 0 {
+            z += 20.;
+        }
         cmd.spawn((
             SceneBundle {
                 scene: asset_handle.clone(),
-                transform: Transform::from_xyz(x, 0.1, 0.)
+                transform: Transform::from_xyz(x, 0.1, z)
                 ,
                 ..default()
             },
@@ -129,7 +147,6 @@ fn startup(
             Trebuchet,
             Name::new("Trebuchet"),
             RigidBody::Static,
-            Focused,
             StateIdle,
         ));
     }
@@ -139,53 +156,35 @@ fn startup(
 
 fn explore(
     treb_q: Query<Entity, (With<Trebuchet>, With<NotReady>, Without<Parts>)>,
-    arm_q: Query<Entity, With<Arm>>,
-    pivot_q: Query<Entity, With<Pivot>>,
-    cw_q: Query<Entity, With<CounterWeight>>,
-    bar_q: Query<Entity, With<Bar>>,
+    parts_q: Query<(Entity, Option<&Arm>, Option<&Pivot>, Option<&CounterWeight>, Option<&Bar>)>, 
     children: Query<&Children>,
     mut cmd: Commands,
 ) {
     for treb_e in treb_q.iter() {
-        let mut e_arm = Entity::PLACEHOLDER;
-        let mut e_pivot = Entity::PLACEHOLDER;
-        let mut e_cw = Entity::PLACEHOLDER;
-        let mut e_bar = Entity::PLACEHOLDER;
-
+        let mut parts = Parts::new();
         for c in children.iter_descendants(treb_e) {
-            if let Ok(arm) =  arm_q.get(c) {
-                e_arm = arm;
+            let Ok((e, oa, op, ocw, ob)) = parts_q.get(c) else {
+                continue;
+            };
+            if oa.is_some() {
+                parts.arm = e ;
+            } else if op.is_some() {
+                parts.pivot = e;
+            } else if ob.is_some() {
+                parts.bar = e;
+            } else if ocw.is_some() {
+                parts.cw = e;
             }
-            if let Ok(pivot) =  pivot_q.get(c) {
-                e_pivot = pivot
-            }
-
-            if let Ok(bar) =  bar_q.get(c) {
-                e_bar = bar
-            }
-
-            if let Ok(cw) =  cw_q.get(c) {
-                e_cw = cw
-            }
-
         }
-        if  e_arm == Entity::PLACEHOLDER || e_pivot == Entity::PLACEHOLDER || 
-            e_cw == Entity::PLACEHOLDER || e_bar == Entity::PLACEHOLDER  {
+        if !parts.is_explored() {
             continue;
         }
-
-        cmd.entity(treb_e).insert(Parts{
-            se: Entity::PLACEHOLDER,
-            pivot: e_pivot,
-            arm: e_arm,
-            bar: e_bar,
-            cw: e_cw,
-            link: None            
-        });
+        cmd.entity(treb_e).insert(parts);
         info!("trebuchet {:?} explored ", treb_e);
     }
 
 }
+
 
 // ---
 
@@ -352,7 +351,7 @@ fn enter_tension(
 // ---
 
 fn do_tension(
-    treb_q: Query<(Entity, &Parts), With<Trebuchet>>,
+    treb_q: Query<(Entity, &Parts), (With<Trebuchet>, With<StateTension>)>,
     arm_q: Query<&Transform, With<Arm>>,
     mut link_q: Query<&mut DistanceJoint, With<Link>>,
     mut cmd: Commands,
@@ -451,7 +450,7 @@ fn do_arming(
 // ---
 
 fn do_loose(
-    mut treb_q: Query<(Entity, &mut Parts, &Transform), With<Trebuchet>>,
+    mut treb_q: Query<(Entity, &mut Parts, &Transform), (With<Trebuchet>, With<StateLoose>)>,
     mut cmd: Commands,
     se_q: Query<&GlobalTransform>,
 ) {
@@ -465,7 +464,7 @@ fn do_loose(
             continue;
         };
 
-        let center = treb_t.translation  + Vec3::Y * 5.;
+        let center = treb_t.translation  + Vec3::Y * TREBUCHET_DIM.y * 0.5;
         let to_se = (se_t.translation() - center).normalize();
         let dot = to_se.dot(Vec3::Y);
         if dot > UNHOOKING_DOT {
