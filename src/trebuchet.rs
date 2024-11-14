@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use bevy::{gizmos::gizmos, input::keyboard::KeyboardInput,prelude::*};
+use bevy::prelude::*;
 use avian3d::prelude::*;
 
 use crate::{GameState, NotReady};
@@ -131,7 +131,7 @@ fn startup(
     let asset_handle = assets.load(GltfAssetLabel::Scene(0).from_asset("models/trebuchet.glb"));
     let mut x = 0.;
     let mut z = 0.;
-    for i in 0..10 {
+    for i in 0..4 {
         x += 10. * i as f32 * (if i % 2 == 0 {1.} else {-1.});
         if i % 10 == 0 {
             z += 20.;

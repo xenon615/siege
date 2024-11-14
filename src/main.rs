@@ -11,7 +11,7 @@ use avian3d::{
 };
 
 use bevy_gltf_components::ComponentsFromGltfPlugin;
-use bevy_registry_export::ExportRegistryPlugin;
+// use bevy_registry_export::ExportRegistryPlugin;
 // use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 mod camera;
@@ -42,9 +42,11 @@ fn main() {
         DefaultPlugins.set(
             WindowPlugin {
                 primary_window : Some(Window {
-                    resolution : WindowResolution::new(1400., 900.),
-                    // mode: WindowMode::BorderlessFullscreen,
-                    position: WindowPosition::Centered(MonitorSelection::Primary),
+                    canvas: Some("#siege-canvas".into()),
+                    // resolution : WindowResolution::new(1400., 900.),
+                    mode: WindowMode::BorderlessFullscreen,
+                    // fit_canvas_to_parent: true,
+                    // position: WindowPosition::Centered(MonitorSelection::Primary),
                     ..default()
                 }),
                 ..default()
@@ -53,7 +55,7 @@ fn main() {
         PhysicsPlugins::default(),
         // PhysicsDebugPlugin::default(),
         ComponentsFromGltfPlugin{legacy_mode: false},
-        ExportRegistryPlugin::default(),
+        // ExportRegistryPlugin::default(),
         // WorldInspectorPlugin::new(),
         camera::CameraPlugin,
         env::EnvPlugin,
