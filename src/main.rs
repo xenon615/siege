@@ -12,14 +12,15 @@ use avian3d::{
 
 use bevy_gltf_components::ComponentsFromGltfPlugin;
 use bevy_registry_export::ExportRegistryPlugin;
-// use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 mod camera;
 mod env;
 mod trebuchet;
 mod trebuchet_loader;
 mod field;
-mod dummies;
+// mod dummies;
+mod fortress;
 
 // ---
 
@@ -54,14 +55,15 @@ fn main() {
         PhysicsPlugins::default(),
         // PhysicsDebugPlugin::default(),
         ComponentsFromGltfPlugin{legacy_mode: false},
-        // ExportRegistryPlugin::default(),
-        // WorldInspectorPlugin::new(),
+        ExportRegistryPlugin::default(),
+        WorldInspectorPlugin::new(),
         camera::CameraPlugin,
         env::EnvPlugin,
         trebuchet::TrebuchetPlugin,
         trebuchet_loader::TrebuchetLoaderPlugin,
         field::FieldPlugin,
-        dummies::DummiesPlugin,
+        // dummies::DummiesPlugin,
+        fortress::FortressPlugin
     ))
     .init_state::<GameState>()
     .add_systems(Update, check_ready.run_if(in_state(GameState::Loading)))

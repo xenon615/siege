@@ -109,15 +109,15 @@ pub const BALL_DENSITY: f32 = 6.5;
 pub const BALL_RADIUS: f32 = 0.65;
 
 const ARM_DIM: Vec3 =  Vec3::new(1., 1., 15.);
-const CW_DENSITY: f32 =  8.0;
+const CW_DENSITY: f32 =  9.5;
 const PIVOT_DAMPING: f32 = 0.1; 
 const PIVOT_OFFSET: f32 = ARM_DIM.z  * 0.3; 
-const ARM_LONG_END_Y: f32 = 3.0;
+const ARM_LONG_END_Y: f32 = 1.0;
 
 const SLING_ELEMENT_DENSITY: f32 = 100.;
 const SLING_ELEMENT_COUNT: u32 = 8;
 const SLING_LEN: f32 = ARM_DIM.z * 0.75;
-const UNHOOKING_DOT: f32 = 0.96;
+const UNHOOKING_DOT: f32 = 0.99;
 
 const TREBUCHET_DIM: Vec3 = Vec3::new(4., 8., 16.);  // ROUGLY
 
@@ -130,8 +130,8 @@ fn startup(
 ) {
     let asset_handle = assets.load(GltfAssetLabel::Scene(0).from_asset("models/trebuchet.glb"));
     let mut x = 0.;
-    for i in 0..4 {
-        x += 10. * i as f32 * (if i % 2 == 0 {1.} else {-1.});
+    for i in 0..7 {
+        x += 20. * i as f32 * (if i % 2 == 0 {1.} else {-1.});
         cmd.spawn((
             SceneBundle {
                 scene: asset_handle.clone(),

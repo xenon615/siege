@@ -28,7 +28,8 @@ fn spawn (
 ) {
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_xyz(5., 10., 65.).looking_to(Vec3::new(-50., 10., -200.), Vec3::Y),
+            transform: Transform::from_xyz(15., 10., 85.).looking_to(Vec3::new(-50., 10., -200.), Vec3::Y),
+            // transform: Transform::from_xyz(5., 10., -200.).looking_to(Vec3::new(-50., 10., -200.), Vec3::Y),
             exposure: Exposure::from_physical_camera(PhysicalCameraParameters {
                 sensitivity_iso: 80.,
                 ..default()
@@ -43,11 +44,11 @@ fn spawn (
             image: assets.load("skyboxes/space_green.ktx2"),
             brightness: 50.,
         },
-        PanOrbitCamera {
-            enabled: true,
-            focus: Vec3::new(40., 10., 0.),
-            ..default()
-        },
+        // PanOrbitCamera {
+        //     enabled: true,
+        //     focus: Vec3::new(40., 10., -200.),
+        //     ..default()
+        // },
         Cam,
     ));
 }
