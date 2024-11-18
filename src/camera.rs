@@ -28,7 +28,7 @@ fn spawn (
 ) {
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_xyz(15., 10., 85.).looking_to(Vec3::new(-50., 10., -200.), Vec3::Y),
+            transform: Transform::from_xyz(15., 20., 95.).looking_to(Vec3::new(-50., 10., -200.), Vec3::Y),
             // transform: Transform::from_xyz(5., 10., -200.).looking_to(Vec3::new(-50., 10., -200.), Vec3::Y),
             exposure: Exposure::from_physical_camera(PhysicalCameraParameters {
                 sensitivity_iso: 80.,
