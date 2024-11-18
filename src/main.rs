@@ -56,7 +56,7 @@ fn main() {
         // PhysicsDebugPlugin::default(),
         ComponentsFromGltfPlugin{legacy_mode: false},
         ExportRegistryPlugin::default(),
-        WorldInspectorPlugin::new(),
+        // WorldInspectorPlugin::new(),
         camera::CameraPlugin,
         env::EnvPlugin,
         trebuchet::TrebuchetPlugin,
