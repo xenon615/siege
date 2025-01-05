@@ -1,26 +1,34 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use bevy::{
-    prelude::*, window::{
-        WindowMode, 
+    // log::{Level, LogPlugin}, 
+    prelude::*, 
+    window::{
+        // WindowMode, 
         WindowPosition, 
         WindowResolution
     }
 };
 use avian3d::{
-    prelude::{PhysicsDebugPlugin, RigidBody}, 
+    prelude::{
+        // PhysicsDebugPlugin, 
+        RigidBody
+    }, 
     PhysicsPlugins
 };
 
-use bevy_gltf_components::ComponentsFromGltfPlugin;
-use bevy_registry_export::ExportRegistryPlugin;
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
+// use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
+mod shared;
 mod camera;
 mod env;
 mod trebuchet;
-mod trebuchet_loader;
+mod ball;
 mod field;
 // mod dummies;
 mod fortress;
+mod radar;
+mod animator;
+mod turret;
 
 // ---
 
@@ -34,13 +42,17 @@ pub enum GameState {
 #[derive(Component)]
 pub struct NotReady;
 
+#[derive(Component)]
+pub struct ShowGizmos;
+
 // ---
 
 fn main() {
     App::new()
     .insert_resource(ClearColor(Color::BLACK))
     .add_plugins((
-        DefaultPlugins.set(
+        DefaultPlugins
+        .set(
             WindowPlugin {
                 primary_window : Some(Window {
                     // canvas: Some("#siege-canvas".into()),
@@ -54,16 +66,19 @@ fn main() {
         ),
         PhysicsPlugins::default(),
         // PhysicsDebugPlugin::default(),
-        ComponentsFromGltfPlugin{legacy_mode: false},
-        ExportRegistryPlugin::default(),
         // WorldInspectorPlugin::new(),
         camera::CameraPlugin,
         env::EnvPlugin,
         trebuchet::TrebuchetPlugin,
-        trebuchet_loader::TrebuchetLoaderPlugin,
+        // trebuchet_loader::TrebuchetLoaderPlugin,
+        ball::BallPlugin,
         field::FieldPlugin,
         // dummies::DummiesPlugin,
-        fortress::FortressPlugin
+        fortress::FortressPlugin,
+        radar:: RadarPlugin,
+        animator::AnimatorPlugin,
+        turret::TurretPlugin
+
     ))
     .init_state::<GameState>()
     .add_systems(Update, check_ready.run_if(in_state(GameState::Loading)))
@@ -75,13 +90,15 @@ fn main() {
 
 fn check_ready(
     not_ready_q: Query<&NotReady>,
-    mut next: ResMut<NextState<GameState>>     
+    mut next: ResMut<NextState<GameState>>,
 ) {
     if not_ready_q.is_empty() {
         println!("GAME!");
         next.set(GameState::Game);
-    }
+    } 
 }
+
+// ---
 
 #[allow(dead_code)]
 fn show_gizmos ( 

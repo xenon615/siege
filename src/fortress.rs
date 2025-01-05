@@ -1,22 +1,22 @@
-use avian3d::parry::utils::hashmap::HashMap;
-use bevy::prelude::*;
-use avian3d::prelude::*;
-
-use crate::field::FieldTarget;
-use crate::{GameState, NotReady};
+use bevy::{
+    prelude::*,
+    scene::SceneInstanceReady
+};
+use avian3d:: prelude::*;
+use crate::{field::FortressPosition, NotReady};
 
 
 pub struct FortressPlugin;
 impl Plugin for FortressPlugin {
     fn build(&self, app: &mut App) {
         app
-        .add_systems(Startup, startup)
-        .add_systems(Update, setup.run_if(in_state(GameState::Loading)))
+        .add_systems(Update, startup.run_if(resource_added::<FortressPosition>))
         ;
     }
 }
 
 // ---
+
 #[derive(Component)]
 pub struct FortressTMP;
 
@@ -24,98 +24,52 @@ pub struct FortressTMP;
 #[derive(Component)]
 pub struct Fortress;
 
-#[derive(Component)]
-pub struct PartOk;
-
-
-// pub  enum  BuildingPartsKey {
-//     Brick,
-//     Pillar,
-//     Platform,
-//     Roof
-// }
-
-// #[derive(Resource)]
-// pub struct BuildingParts(HashMap<BuildingPartsKey, Handle<Mesh>>);
-
-// // ---
-
-// fn startup(mut cmd: Commands) {
-//     cmd.spawn((NotReady, Buildings));
-// }
-
-// // ---
-
-// fn setup(
-//     mut cmd: Commands,
-//     tf_q: Query<&Transform, With<FieldTarget>>,
-//     mut materials: ResMut<Assets<StandardMaterial>>,
-//     mut meshes: ResMut<Assets<Mesh>>,
-//     ready_q: Query<Entity, (With<Buildings>, With<NotReady>)>
-
-// ) {
-
-//     if ready_q.is_empty() {
-//         return;
-//     }
-
-//     let Ok(t) = tf_q.get_single() else {
-//         return;
-//     };
-
-//     if let Ok(re) = ready_q.get_single() {
-//         cmd.entity(re).despawn();    
-//     }
-
-
-// }
-
 fn startup(
     mut cmd: Commands,
-    assets: ResMut<AssetServer>
+    assets: ResMut<AssetServer>,
+    fp: Res<FortressPosition>
 ) {
     cmd.spawn((NotReady, FortressTMP));
     cmd.spawn((
-        SceneBundle {
-            transform: Transform::from_xyz(0., 0., -300.),
-            scene: assets.load(GltfAssetLabel::Scene(0).from_asset("models/fortress.glb")),
-            ..default()
-        },
+        SceneRoot(assets.load(GltfAssetLabel::Scene(0).from_asset("models/fortress.glb"))),
+        Transform::from_translation(fp.0),   
         Fortress,
         Name::new("Fortress"),
-    ));
+    ))
+    .observe(setup)
+    ;
 }
 
 // ---
 
 fn setup (
+    tr: Trigger<SceneInstanceReady>,
     mut cmd: Commands,
     children_q: Query<&Children>,
-    rb_q: Query<Entity, (With<RigidBody>, Without<PartOk>)>,
-    f_q : Query<Entity, With<Fortress>>,
-    ready_q: Query<Entity, (With<FortressTMP>, With<NotReady>)>,
-    mut first: Local<bool>
+    name_q: Query<&Name>,
+    ready_q: Single<Entity, (With<FortressTMP>, With<NotReady>)>,
+
 ) {
-    if ready_q.is_empty() {
-        return;
-    }
+    for  c in children_q.iter_descendants_depth_first(tr.entity()) {
+        if let Ok(name) = name_q.get(c) {
+            if name.starts_with("brick") || name.starts_with("disk") || name.starts_with("pillar") || name.starts_with("roof") {
+                cmd.entity(c).insert((
+                    RigidBody::Dynamic,
+                    ColliderDensity(0.1),
+                    Friction::new(0.1)
+                ));
 
-    let Ok(f_e) = f_q.get_single() else {
-        return;
-    };
-    let mut found = false; 
-    for  c in children_q.iter_descendants(f_e) {
-        if let Ok(e) = rb_q.get(c) {
-            found = true;
-            *first = true;
-            cmd.entity(e).insert(ColliderDensity(0.2));
-            cmd.entity(e).insert(PartOk);
+                if name.starts_with("brick") {
+                    cmd.entity(c).insert(Collider::cuboid(8., 4., 4.));
+                } else if name.starts_with("pillar") {
+                    cmd.entity(c).insert(Collider::cylinder(3., 8.));
+                } else if name.starts_with("roof") {
+                    cmd.entity(c).insert(Collider::cone(10., 15.));
+                } else if name.starts_with("disk") {
+                    cmd.entity(c).insert(Collider::cylinder(10., 2.));
+                } 
+            }
         }
     }
-
-    if !found && *first{
-        if let Ok(re) = ready_q.get_single() {
-            cmd.entity(re).despawn();    
-        }
-    }
+    cmd.entity(ready_q.into_inner()).despawn();    
 }

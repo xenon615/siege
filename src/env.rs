@@ -18,13 +18,14 @@ fn startup(
     // mut al: ResMut<AmbientLight>
 ) {
     // al.brightness = 250.;
-    cmd.spawn(DirectionalLightBundle{
-        directional_light: DirectionalLight {
+    cmd.spawn((
+        DirectionalLight {
             illuminance: 500.,
+            shadows_enabled: false,
             ..default()
         },
-        ..default()
-    });
+        Transform::IDENTITY.looking_at(Vec3::ZERO, Vec3::Y)
+    ));
 }
 
 // ---

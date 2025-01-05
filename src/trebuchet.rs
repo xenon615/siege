@@ -1,51 +1,45 @@
 use std::time::Duration;
 
-use bevy::prelude::*;
+use bevy::{gizmos, prelude::*};
 use avian3d::prelude::*;
+use bevy::scene::SceneInstanceReady;
 
 use crate::{GameState, NotReady};
+use crate::shared::{Ball, GameLayer, Interval, Targetable, BALL_RADIUS, BallSpawn};
 pub struct TrebuchetPlugin;
 
 impl Plugin for TrebuchetPlugin {
     fn build(&self, app: &mut App) {
         app
-        .register_type::<Arm>()
-        .register_type::<Pivot>()
-        .register_type::<CounterWeight>()
-        .register_type::<Bar>()
-
         .add_systems(Startup, startup)
-        .add_systems(Update, (explore, setup).run_if(in_state(GameState::Loading)))
+        .add_systems(OnEnter(GameState::Game), start_game)
         .add_systems(Update, do_tension.run_if(any_with_component::<StateTension>))
-        .add_systems(Update, do_arming.run_if(on_event::<CollisionEnded>()))
+        .add_systems(Update, do_arming.run_if(on_event::<CollisionEnded>))
         .add_systems(Update, do_loose.run_if(any_with_component::<StateLoose>))
-        .add_systems(Update, (reload, despawn_ball).run_if(any_with_component::<Interval>))
-        .observe(enter_idle)
-        .observe(enter_tension)
+        .add_systems(Update, reload.run_if(any_with_component::<Interval>))
+        .add_observer(enter_idle)
+        .add_observer(enter_tension)
+        .add_observer(setup)
+        .add_observer(enter_arming)
         ;
     }
 }
 
 // ---
 
-#[derive(Component, Reflect, Default, Debug)]
-#[reflect(Component)]
+#[derive(Component)]
 pub struct Arm;
 
-#[derive(Component, Reflect, Default, Debug)]
-#[reflect(Component)]
+#[derive(Component)]
 pub struct Pivot;
 
-#[derive(Component, Reflect, Default, Debug)]
-#[reflect(Component)]
+#[derive(Component)]
 pub struct CounterWeight;
 
-#[derive(Component, Reflect, Default, Debug)]
-#[reflect(Component)]
+#[derive(Component)]
 pub struct Lock;
 
-#[derive(Component, Reflect, Default, Debug)]
-#[reflect(Component)]
+#[derive(Component)]
 pub struct Bar;
 
 #[derive(Component)]
@@ -53,9 +47,6 @@ pub struct Trebuchet;
 
 #[derive(Component)]
 pub struct  SlingEnd;
-
-#[derive(Component)]
-pub struct  Ball;
 
 #[derive(Component)]
 pub struct StateIdle;
@@ -83,13 +74,6 @@ pub struct Parts {
 }
 
 impl Parts {
-    fn is_explored(&self) -> bool {
-        self.arm != Entity::PLACEHOLDER && 
-        self.pivot != Entity::PLACEHOLDER && 
-        self.cw != Entity::PLACEHOLDER && 
-        self.bar!= Entity::PLACEHOLDER
-    }
-
     fn new() -> Self{
         Self {pivot: Entity::PLACEHOLDER,
             se: Entity::PLACEHOLDER,
@@ -101,12 +85,7 @@ impl Parts {
     }
 }
 
-#[derive(Component)]
-pub struct Interval(Timer);
-
 // -- CONSTANTS --
-pub const BALL_DENSITY: f32 = 6.5;
-pub const BALL_RADIUS: f32 = 0.65;
 
 const ARM_DIM: Vec3 =  Vec3::new(1., 1., 15.);
 const CW_DENSITY: f32 =  9.5;
@@ -133,182 +112,187 @@ fn startup(
     for i in 0..7 {
         x += 20. * i as f32 * (if i % 2 == 0 {1.} else {-1.});
         cmd.spawn((
-            SceneBundle {
-                scene: asset_handle.clone(),
-                transform: Transform::from_xyz(x, 0.1, 0.)
-                ,
-                ..default()
-            },
+            SceneRoot(asset_handle.clone()),
+            Transform::from_xyz(x, 0.1, 0.),
             NotReady,
             Trebuchet,
             Name::new("Trebuchet"),
             RigidBody::Static,
-            StateIdle,
-        ));
+            ColliderConstructorHierarchy::new(None).with_constructor_for_name("m_hill", ColliderConstructor::TrimeshFromMesh),
+        ))
+        .observe(explore)
+        ;
+        info!("Trebuchet spawned");
     }
 }
 
 // ---
 
 fn explore(
-    treb_q: Query<Entity, (With<Trebuchet>, With<NotReady>, Without<Parts>)>,
-    parts_q: Query<(Entity, Option<&Arm>, Option<&Pivot>, Option<&CounterWeight>, Option<&Bar>)>, 
+    tr: Trigger<SceneInstanceReady>,
+    props: Query<&GltfExtras>,
     children: Query<&Children>,
     mut cmd: Commands,
 ) {
-    for treb_e in treb_q.iter() {
-        let mut parts = Parts::new();
-        for c in children.iter_descendants(treb_e) {
-            let Ok((e, oa, op, ocw, ob)) = parts_q.get(c) else {
-                continue;
-            };
-            if oa.is_some() {
-                parts.arm = e ;
-            } else if op.is_some() {
-                parts.pivot = e;
-            } else if ob.is_some() {
-                parts.bar = e;
-            } else if ocw.is_some() {
-                parts.cw = e;
-            }
-        }
-        if !parts.is_explored() {
+    let mut parts = Parts::new();
+    for c in children.iter_descendants_depth_first(tr.entity()) {
+        let Ok(ex) = props.get(c) else {
             continue;
+        }; 
+        if ex.value.contains("Arm") {
+            parts.arm = c;
+            cmd.entity(c).insert(Arm);
+        } else if ex.value.contains("Pivot") {
+            parts.pivot = c;
+            cmd.entity(c).insert(Pivot);
+        } else if ex.value.contains("CounterWeight") {
+            parts.cw = c;
+            cmd.entity(c).insert(CounterWeight);
+        } else if  ex.value.contains("Lock") {
+            cmd.entity(c).insert(Lock);
+        } else if  ex.value.contains("Bar") {
+            parts.bar = c;
+            cmd.entity(c).insert(Bar);
         }
-        cmd.entity(treb_e).insert(parts);
-        info!("trebuchet {:?} explored ", treb_e);
     }
-
+    cmd.entity(tr.entity()).insert(parts);
+    info!("Trebuchet explored");
 }
-
 
 // ---
 
 fn setup(
+    tr: Trigger<OnAdd, Parts>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials : ResMut<Assets<StandardMaterial>>,
-    mut treb_q: Query<(Entity, &mut Parts), (Added<Parts>,With<Trebuchet>, With<NotReady>)>,
+    mut parts_q: Query<&mut Parts, (Added<Parts>, With<Trebuchet>, With<NotReady>)>,
     arm_q: Query<&Transform, With<Arm>>,
     mut cmd: Commands,
 ) {
+    let treb_e = tr.entity();
+    let mut parts = parts_q.get_mut(treb_e).unwrap(); 
+    cmd.entity(parts.arm)
+    .insert((
+        RigidBody::Dynamic,
+        MassPropertiesBundle::from_shape(&Collider::cuboid(ARM_DIM.x, ARM_DIM.y, ARM_DIM.z), 1.),
+    ));
+    let anchor_arm = Vec3::Z *  ARM_DIM.z * 0.5;
 
-    for (treb_e, mut parts) in treb_q.iter_mut() {
+    // PIVOT ===========================================================
 
-        // ARM ============================================================
-    
-        cmd.entity(parts.arm)
-        .insert((
-            RigidBody::Dynamic,
-            // RigidBody::Static,
-            MassPropertiesBundle::new_computed(&Collider::cuboid(ARM_DIM.x, ARM_DIM.y, ARM_DIM.z), 1.),
-        ));
-        let anchor_arm = Vec3::Z *  ARM_DIM.z * 0.5;
+    cmd.entity(parts.pivot).insert(RigidBody::Static);
+    let joint_id = cmd.spawn((
+        RevoluteJoint::new(parts.pivot, parts.arm)
+        .with_aligned_axis(Vec3::X)
+        .with_local_anchor_2(-Vec3::Z * PIVOT_OFFSET)
+        .with_angular_velocity_damping(PIVOT_DAMPING)
+        ,
+    )).id();
 
-        // PIVOT ===========================================================
+    cmd.entity(treb_e).add_child(joint_id);
+
+    // CW ==============================================================
+
+    cmd.entity(parts.cw)
+    .insert((
+        RigidBody::Dynamic,
+        // RigidBody::Static,
+        MassPropertiesBundle::from_shape(&Collider::cylinder(4., 2.), CW_DENSITY)
+    ));
+            
+    let joint_id = cmd.spawn(
+        RevoluteJoint::new(parts.arm, parts.cw)
+        .with_aligned_axis(Vec3::X)
+        .with_local_anchor_1(-anchor_arm)
+        .with_local_anchor_2(Vec3::Y)
+    ).id();
+
+    cmd.entity(treb_e).add_child(joint_id);
+
+    // SLING ============================================================
+
+    let arm_pos = arm_q.get(parts.arm).unwrap().translation;
+    let element_dim = Vec3::new(0.1, 0.1, SLING_LEN / SLING_ELEMENT_COUNT as f32);
+    let anchor_element = Vec3::Z * element_dim.z / 2.;
+    let element_mesh = meshes.add(Cuboid::from_size(element_dim));
+    let element_mat = materials.add(Color::BLACK);
+
+    let mut pos = arm_pos +  anchor_arm + anchor_element; 
+    let mut prev_element_id = parts.arm;
         
-        cmd.entity(parts.pivot).insert(RigidBody::Static);
 
-        let joint_id = cmd.spawn((
-            RevoluteJoint::new(parts.pivot, parts.arm)
-            .with_aligned_axis(Vec3::X)
-            .with_local_anchor_2(-Vec3::Z * PIVOT_OFFSET)
-            .with_angular_velocity_damping(PIVOT_DAMPING)
-            ,
+    for i in 0 .. SLING_ELEMENT_COUNT {
+        let element_id = cmd.spawn((
+            Mesh3d(element_mesh.clone()),
+            MeshMaterial3d(element_mat.clone()),
+            Transform::from_translation(pos),
+            RigidBody::Dynamic,
+            MassPropertiesBundle::from_shape(
+                &Collider::cuboid(element_dim.x, element_dim.y, element_dim.z), 
+            SLING_ELEMENT_DENSITY),
         )).id();
-
-        cmd.entity(treb_e).add_child(joint_id);
-
-        // CW ==============================================================
-
-        cmd.entity(parts.cw)
-        .insert((
-            RigidBody::Dynamic,
-            MassPropertiesBundle::new_computed(&Collider::cylinder(4., 2.), CW_DENSITY)
-        ));
-            
-        let joint_id = cmd.spawn(
-            RevoluteJoint::new(parts.arm, parts.cw)
-            .with_aligned_axis(Vec3::X)
-            .with_local_anchor_1(-anchor_arm)
-            .with_local_anchor_2(Vec3::Y)
-        ).id();
-
-        cmd.entity(treb_e).add_child(joint_id);
-
-        // SLING ============================================================
-
-        let arm_pos = arm_q.get(parts.arm).unwrap().translation;
-        let element_dim = Vec3::new(0.1, 0.1, SLING_LEN / SLING_ELEMENT_COUNT as f32);
-        let anchor_element = Vec3::Z * element_dim.z / 2.;
-        let element_mesh = meshes.add(Cuboid::from_size(element_dim));
-        let element_mat = materials.add(Color::BLACK);
-
-        let mut pos = arm_pos +  anchor_arm + anchor_element; 
-
-        let mut prev_element_id = parts.arm;
-        
-
-        for i in 0 .. SLING_ELEMENT_COUNT {
-            let element_id = cmd.spawn((
-                MaterialMeshBundle {
-                    transform: Transform::from_translation(pos),
-                    material: element_mat.clone(),
-                    mesh: element_mesh.clone(),
-                    ..default()
-                },
-                RigidBody::Dynamic,
-                MassPropertiesBundle::new_computed(
-                    &Collider::cuboid(element_dim.x, element_dim.y, element_dim.z), 
-                SLING_ELEMENT_DENSITY),
-            )).id();
-            cmd.entity(treb_e).add_child(element_id);
-
-            let joint_id = cmd.spawn(
-                SphericalJoint::new(prev_element_id, element_id)
-                .with_local_anchor_1(if i == 0 {anchor_arm} else {anchor_element})
-                .with_local_anchor_2(-anchor_element)
-            ).id();
-            
-            cmd.entity(treb_e).add_child(joint_id);
-
-            prev_element_id  = element_id;
-            pos += 2. * anchor_element;
-        }
-        
-        // ENDING =======================================================================
-        
-        let ending_radius = 0.1;
-        let ending_id = cmd.spawn((
-            MaterialMeshBundle {
-                transform: Transform::from_translation(pos - anchor_element - Vec3::Z * ending_radius),
-                mesh: meshes.add(Sphere::new(ending_radius)),
-                material: element_mat.clone(),
-                ..default()
-            }, 
-            RigidBody::Dynamic,
-            Restitution::new(0.).with_combine_rule(CoefficientCombine::Min),
-            Friction::new(0.).with_combine_rule(CoefficientCombine::Min),
-            Collider::sphere(ending_radius * 5.),
-            CollisionMargin(0.1),
-            SlingEnd
-        ))
-        .id()
-        ;
-        cmd.entity(treb_e).add_child(ending_id);
+        cmd.entity(treb_e).add_child(element_id);
 
         let joint_id = cmd.spawn(
-            SphericalJoint::new(prev_element_id, ending_id)
-            .with_local_anchor_1(anchor_element)
+            SphericalJoint::new(prev_element_id, element_id)
+            .with_local_anchor_1(if i == 0 {anchor_arm} else {anchor_element})
+            .with_local_anchor_2(-anchor_element)
         ).id();
-
+        
         cmd.entity(treb_e).add_child(joint_id);
 
-        parts.se = ending_id;    
-        cmd.entity(treb_e).remove::<NotReady>();
-        info!("trebuchet {:?} setted ", treb_e );
-        
+        prev_element_id  = element_id;
+        pos += 2. * anchor_element;
     }
+
+    // ENDING =======================================================================
+        
+    let ending_radius = 0.1;
+    let ending_id = cmd.spawn((
+        Mesh3d(meshes.add(Sphere::new(ending_radius))),
+        MeshMaterial3d(element_mat.clone()),
+        RigidBody::Dynamic,
+        Restitution::new(0.).with_combine_rule(CoefficientCombine::Min),
+        Friction::new(0.).with_combine_rule(CoefficientCombine::Min),
+        Collider::sphere(ending_radius * 3.),
+        CollisionMargin(0.1),
+        SlingEnd
+    ))
+    .id()
+    ;
+    cmd.entity(treb_e).add_child(ending_id);
+
+    let joint_id = cmd.spawn(
+        SphericalJoint::new(prev_element_id, ending_id)
+        .with_local_anchor_1(anchor_element)
+    ).id();
+
+    cmd.entity(treb_e).add_child(joint_id);
+
+    parts.se = ending_id;    
+
+    // BAR ==========================================================================
+    cmd.entity(parts.bar)
+    .insert((
+        RigidBody::Static,
+        Collider::cuboid(4., 0.5, 16.)
+    ));
+
+    cmd.entity(treb_e).remove::<NotReady>();
+    info!("Trebuchet ready");
+    
 } 
+
+// ---
+
+fn start_game(
+    mut cmd: Commands,
+    treb_q: Query<Entity, With<Trebuchet>>
+) {
+    for e in &treb_q {
+        cmd.entity(e).insert(StateIdle);
+    }
+}
 
 // ---
 
@@ -316,6 +300,7 @@ fn enter_idle(
     trigger: Trigger<OnAdd, StateIdle>,
     mut cmd: Commands,
 ) {
+    info!("Trebuchet entered idle");
     cmd.entity(trigger.entity()).insert(
         Interval(Timer::new(Duration::from_secs(fastrand::u64(5..10)), TimerMode::Once))
     );
@@ -325,11 +310,11 @@ fn enter_idle(
 
 fn enter_tension(
     trigger: Trigger<OnAdd, StateTension>,
-    mut treb_q: Query<&mut Parts>,
+    mut parts_q: Query<&mut Parts>,
     mut cmd: Commands,
 ) {
     let treb_e = trigger.entity();
-    let Ok(mut parts) = treb_q.get_mut(treb_e) else {
+    let Ok(mut parts) = parts_q.get_mut(treb_e) else {
         return;
     };
     
@@ -356,7 +341,7 @@ fn do_tension(
         let Ok(arm_t) = arm_q.get(treb_parts.arm) else {
             continue;
         };
-      
+
         let arm_long_end_y = (arm_t.translation - arm_t.forward() * ARM_DIM.z * 0.5).y;
         if arm_long_end_y  < ARM_LONG_END_Y {
             cmd.entity(treb_e)
@@ -396,10 +381,27 @@ fn do_tension(
 
 // ---
 
+fn enter_arming(
+    trigger: Trigger<OnAdd, StateArming>,
+    mut cmd: Commands,
+    treb_q: Query<&Transform>,
+) {
+    let treb_e = trigger.entity();
+
+    let Ok(t) = treb_q.get(treb_e) else {
+        return;
+    };
+
+    cmd.trigger(BallSpawn(t.translation.with_y(5.) - Vec3::Z * 12.));
+    
+}
+
+// ---
+
 fn do_arming(
     mut collision_events: EventReader<CollisionEnded>,
     se_q: Query<Entity, With<SlingEnd>>,
-    ball_q: Query<Entity, With<Ball>>,
+    ball_q: Query<Entity, (With<Ball>, Without<Targetable>)>,
     parent_q: Query<&Parent>,
     parts_q: Query<&Parts>,
     mut cmd: Commands
@@ -435,12 +437,12 @@ fn do_arming(
                     )
                     .insert(LinearVelocity(Vec3::ZERO))
                     ;
-                    info!("trebuchet {:?} armed ", p);
+                    // info!("trebuchet {:?} armed ", p);
                 }
             }
             
-        }
-    }    
+        } 
+    } 
 }
 
 // ---
@@ -449,6 +451,7 @@ fn do_loose(
     mut treb_q: Query<(Entity, &mut Parts, &Transform), (With<Trebuchet>, With<StateLoose>)>,
     mut cmd: Commands,
     se_q: Query<&GlobalTransform>,
+    link_q: Query<&DistanceJoint>
 ) {
 
     for (treb_e, mut treb_parts, treb_t)  in treb_q.iter_mut() {
@@ -460,10 +463,15 @@ fn do_loose(
             continue;
         };
 
+        let Ok(link_j) = link_q.get(link) else {
+            continue;
+        };
+
         let center = treb_t.translation  + Vec3::Y * TREBUCHET_DIM.y * 0.5;
         let to_se = (se_t.translation() - center).normalize();
         let dot = to_se.dot(Vec3::Y);
         if dot > UNHOOKING_DOT {
+            cmd.entity(link_j.entity2).insert(Targetable);
             cmd.entity(link).despawn();
             cmd.entity(treb_e)
             .remove::<StateLoose>()
@@ -495,16 +503,3 @@ fn reload(
 
 // ---
 
-fn despawn_ball(
-    mut t_q: Query<(Entity, &mut Interval), With<Ball>>,
-    mut cmd: Commands,
-    time: Res<Time>
-) {
-    for (e, mut interval) in & mut t_q {
-        interval.0.tick(time.delta());
-        if interval.0.finished() {
-            info!("ball despawned");
-            cmd.entity(e).despawn_recursive();
-        }
-    }
-}
