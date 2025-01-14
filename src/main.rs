@@ -10,7 +10,7 @@ use bevy::{
 };
 use avian3d::{
     prelude::{
-        PhysicsDebugPlugin, 
+        // PhysicsDebugPlugin, 
         RigidBody
     }, 
     PhysicsPlugins
@@ -58,10 +58,10 @@ fn main() {
         .set(
             WindowPlugin {
                 primary_window : Some(Window {
-                    // canvas: Some("#siege-canvas".into()),
-                    resolution : WindowResolution::new(1400., 900.),
+                    canvas: Some("#siege-canvas".into()),
+                    // resolution : WindowResolution::new(1400., 900.),
                     // mode: WindowMode::BorderlessFullscreen,
-                    position: WindowPosition::Centered(MonitorSelection::Primary),
+                    // position: WindowPosition::Centered(MonitorSelection::Primary),
                     ..default()
                 }),
                 ..default()
