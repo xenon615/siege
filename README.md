@@ -30,3 +30,6 @@ A defenseless fortress is a very pitiful thing. So we need a radar to detect ene
 Plong, for very usefull thing which helped me a lot  
 [Bevy Pan/Orbit Camera](https://github.com/Plonq/bevy_panorbit_camera)
 
+## Disclaimer
+I sincerely regret that I do not indicate any license, it is not out of malicious intent, I just have not yet figured out which one to choose, I regret it
+

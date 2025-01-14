@@ -41,7 +41,7 @@ pub struct LastShoot(f32);
 pub struct Fire;
 
 const COOLDOWN_TIME: f32 = 0.5;
-const OPERATOR_DRUNK_DEGREE: f32 = 0.5;
+const OPERATOR_DRUNK_DEGREE: f32 = 0.2;
 
 // ---
 
