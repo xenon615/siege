@@ -27,5 +27,5 @@ A defenseless fortress is a very pitiful thing. So we need a radar to detect ene
 ![Scene](img/scene.png)
 
 ## Credits
-Very usefull thing [Bevy Pan/Orbit Camera](https://github.com/Plonq/bevy_panorbit_camera)
+Very usefull thing which helped me a lot [Bevy Pan/Orbit Camera](https://github.com/Plonq/bevy_panorbit_camera)
 
