@@ -5,4 +5,5 @@ body {
     align-items: center;
     color: beige;
     flex-direction: column;
+    margin: 0px;
 }
