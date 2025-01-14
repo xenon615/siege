@@ -23,8 +23,9 @@ _Masterfully drawn, huh? :)_
 
 
 ![Radar](img/radar.png) 
-![Turret](img/turret.png)
-I must note that the percentage of hits on enemy shells depends on how drunk the operator is. :)
+![Turret](img/turret.png)  
+
+_I must note that the percentage of hits on enemy shells depends on how drunk the operator is. :)_
 ![Note](note.png)
 
 ![Scene](img/scene.png)
