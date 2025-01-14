@@ -17,19 +17,22 @@ Well, then, we'll take a little bit of Bevy, a little bit of Avian3d and a littl
 We'll just build it out of bricks (we need it to fall apart on impact)    
 ![Fortress](img/fortress.png)
 
-## Part 3: AntiTrebuchetDefenseSystem 
+## Part 3: AntiTrebuchetDefenseSystem :)
 A defenseless fortress is a very pitiful thing. So we need a radar to detect enemy shells and a turret to shoot them down.  
+
+
 ![Radar](img/radar.png) 
 ![Turret](img/turret.png)
-
-<a href="https://xenon615.github.io/siege/" target="_blank">Demo</a>  
+I must note that the percentage of hits on enemy shells depends on how drunk the operator is. :)
+![Note](note.png)
 
 ![Scene](img/scene.png)
+<a href="https://xenon615.github.io/siege/" target="_blank">Demo</a>  
 
 ## Credits
 Plong, for very usefull thing which helped me a lot  
 [Bevy Pan/Orbit Camera](https://github.com/Plonq/bevy_panorbit_camera)
 
 ## Disclaimer
-I sincerely regret that I do not indicate any license, it is not out of malicious intent, I just have not yet figured out which one to choose, I regret it
+I sincerely regret that I do not indicate any license, it is not out of malicious intent, I just have not yet figured out which one to choose, I regret it.
 
