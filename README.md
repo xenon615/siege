@@ -8,13 +8,23 @@ First, let's take some information from Wikipedia [Trebuchet](https://en.wikiped
 
 Then we'll draw this thing in Blender.  
 
-![Trebuchet](img/image.png)  
+![Trebuchet](img/trebuchet.png)  
 
 
 Well, then, we'll take a little bit of Bevy, a little bit of Avian3d and a little bit of our brains (just a little bit ;)).  
+
+## Part 2: Fortress
+We'll just build it out of bricks (we need it to fall apart on impact)  
+![alt text](img/fortress.png)
+
+## Part 3: AntiTrebuchetDefenseSystem 
+A defenseless fortress is a very pitiful thing. So we need a radar to detect enemy shells and a turret to shoot them down.
+![alt text](img/radar.png) 
+![alt text](imp/turret.png)
+
 <a href="https://xenon615.github.io/siege/" target="_blank">Demo</a>  
 
-![Scene](img/image-1.png)
+![Scene](img/scene.png)
 
 ## Credits
 Very usefull thing [Bevy Pan/Orbit Camera](https://github.com/Plonq/bevy_panorbit_camera)
