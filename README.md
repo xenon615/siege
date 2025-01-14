@@ -25,8 +25,8 @@ _Masterfully drawn, huh? :)_
 ![Radar](img/radar.png) 
 ![Turret](img/turret.png)  
 
-_I must note that the percentage of hits on enemy shells depends on how drunk the operator is. :)_
-![Note](note.png)
+_I must note that the percentage of hits on enemy shells depends on how drunk the operator is. :)_  
+![Note](img/note.png)
 
 ![Scene](img/scene.png)
 <a href="https://xenon615.github.io/siege/" target="_blank">Demo</a>  
