@@ -46,9 +46,9 @@ impl Plugin for AnimatorPlugin {
         app
         .add_systems(Startup, startup)
         .add_systems(Update, setup.run_if(in_state(GameState::Loading)))
-        .add_systems(Update, check.run_if(in_state(GameState::Loading)))
         .add_systems(Update, switch)
         .insert_resource(AllAnimations(HashMap::new()))
+        .add_observer(check)
         ;
     }
 }
@@ -58,15 +58,15 @@ impl Plugin for AnimatorPlugin {
 fn startup(
     mut cmd: Commands
 ) {
-    cmd.spawn((NotReady, TempAnimatorMarker, Name::new("Animator")));
+    cmd.spawn((NotReady, TempAnimatorMarker));
 }
 
 // ---
 
 pub fn setup(
-    mut commands: Commands,
+    mut cmd: Commands,
     all_animations: Res<AllAnimations>,
-    mut players: Query<(Entity, &mut AnimationPlayer)>,
+    mut players: Query<&mut AnimationPlayer>,
     objects_q: Query<(Entity, &AnimationKey), (Without<CurrentAnimation>, With<AnimationKey>)>, 
     children_q : Query<&Children>
 ) {
@@ -76,8 +76,8 @@ pub fn setup(
 
     for (o_entity, o_akey) in objects_q.iter() {
         for c  in children_q.iter_descendants(o_entity) {
-            if let Ok((entity, mut player)) = players.get_mut(c)  {
-                let Some(ani_set) =  all_animations.0.get(o_akey)  else {
+            if let Ok(mut player) = players.get_mut(c)  {
+                let Some(ani_set) =  all_animations.0.get(o_akey) else {
                     return;
                 };
                 let last_animation = ani_set.animations.len() - 1;
@@ -86,13 +86,12 @@ pub fn setup(
                     .play(&mut player, ani_set.animations[last_animation] , Duration::ZERO)
                     .repeat()
                 ;
-                commands
-                    .entity(entity)
-                    // .insert(ani_set.graph.clone())
+                cmd
+                    .entity(c)
                     .insert(AnimationGraphHandle(ani_set.graph.clone()))
                     .insert(transitions)
                 ;
-                commands.entity(o_entity).insert(CurrentAnimation(last_animation, entity));
+                cmd.entity(o_entity).insert(CurrentAnimation(last_animation, c));
             }
         }
     }
@@ -121,14 +120,14 @@ pub fn switch(
 }
 
 // ---
-
+    
 pub fn check(
+    _tr: Trigger<OnAdd, CurrentAnimation>,
     animated_q: Query<&AnimationKey, Without<CurrentAnimation>>,
     check_q: Single<Entity, (With<NotReady>, With<TempAnimatorMarker>)>,
     mut cmd: Commands
 ) {
     if animated_q.is_empty() {
         cmd.entity(check_q.into_inner()).despawn();
-    }
+    } 
 }
-    

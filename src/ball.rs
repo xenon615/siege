@@ -8,6 +8,7 @@ pub struct BallPlugin;
 impl Plugin for BallPlugin {
     fn build(&self, app: &mut App) {
         app
+        .add_systems(Startup, startup)
         .add_systems(Update, despawn_on_time.run_if(any_with_component::<Interval>))
         .add_systems(Update, despawn_on_collision.run_if(on_event::<CollisionEnded>))
         .add_observer(spawn)
@@ -18,15 +19,32 @@ impl Plugin for BallPlugin {
 
 // ---
 
-fn spawn(
-    trigger: Trigger<BallSpawn>,
+#[derive(Resource)]
+pub struct BallMM(Handle<Mesh>, Handle<StandardMaterial>);
+
+// ---
+
+fn startup (
     mut cmd: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    cmd.insert_resource(BallMM(
+        meshes.add(Sphere::new(BALL_RADIUS)),
+        materials.add(Color::hsl(150., 1.0, 0.5))
+    ));
+}
+
+// ---
+
+fn spawn(
+    trigger: Trigger<BallSpawn>,
+    mut cmd: Commands,
+    bmm: Res<BallMM> 
+) {
     cmd.spawn((
-        Mesh3d(meshes.add(Sphere::new(BALL_RADIUS)),),
-        MeshMaterial3d(materials.add(Color::hsl(150., 1.0, 0.5))),
+        Mesh3d(bmm.0.clone()),
+        MeshMaterial3d(bmm.1.clone()),
         Transform::from_translation(trigger.event().0),
         RigidBody::Dynamic,
         Restitution::new(0.).with_combine_rule(CoefficientCombine::Min),
@@ -35,8 +53,6 @@ fn spawn(
         Ball,
         Name::new("Ball"),
         CollisionLayers::new(GameLayer::Targetable, [LayerMask::ALL])
-
-
     ));
 }
 

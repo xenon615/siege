@@ -55,6 +55,7 @@ fn setup (
             if name.starts_with("brick") || name.starts_with("disk") || name.starts_with("pillar") || name.starts_with("roof") {
                 cmd.entity(c).insert((
                     RigidBody::Dynamic,
+                    // RigidBody::Static,
                     ColliderDensity(0.1),
                     Friction::new(0.1)
                 ));

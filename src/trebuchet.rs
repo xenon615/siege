@@ -5,7 +5,8 @@ use avian3d::prelude::*;
 use bevy::scene::SceneInstanceReady;
 
 use crate::{GameState, NotReady};
-use crate::shared::{Ball, GameLayer, Interval, Targetable, BALL_RADIUS, BallSpawn};
+use crate::shared::{Interval, Targetable};
+use crate::projectle::{Ball, LifeTime, ProjectleKey, ProjectleSpawn, Released, BALL_RADIUS};
 pub struct TrebuchetPlugin;
 
 impl Plugin for TrebuchetPlugin {
@@ -109,20 +110,19 @@ fn startup(
 ) {
     let asset_handle = assets.load(GltfAssetLabel::Scene(0).from_asset("models/trebuchet.glb"));
     let mut x = 0.;
-    for i in 0..7 {
-        x += 20. * i as f32 * (if i % 2 == 0 {1.} else {-1.});
+    for i in 0..11 {
+        x += 10. * i as f32 * (if i % 2 == 0 {1.} else {-1.});
         cmd.spawn((
             SceneRoot(asset_handle.clone()),
-            Transform::from_xyz(x, 0.1, 0.),
+            Transform::from_xyz(x, 0.1, 40.),
             NotReady,
             Trebuchet,
             Name::new("Trebuchet"),
             RigidBody::Static,
-            ColliderConstructorHierarchy::new(None).with_constructor_for_name("m_hill", ColliderConstructor::TrimeshFromMesh),
         ))
         .observe(explore)
         ;
-        info!("Trebuchet spawned");
+        //info!("Trebuchet spawned");
     }
 }
 
@@ -153,10 +153,12 @@ fn explore(
         } else if  ex.value.contains("Bar") {
             parts.bar = c;
             cmd.entity(c).insert(Bar);
+        } else if  ex.value.contains("Hill") {
+            cmd.entity(c).insert(Collider::cuboid(2., 0.125, 8.));
         }
     }
     cmd.entity(tr.entity()).insert(parts);
-    info!("Trebuchet explored");
+    //info!("Trebuchet explored");
 }
 
 // ---
@@ -279,7 +281,7 @@ fn setup(
     ));
 
     cmd.entity(treb_e).remove::<NotReady>();
-    info!("Trebuchet ready");
+    //info!("Trebuchet ready");
     
 } 
 
@@ -300,7 +302,7 @@ fn enter_idle(
     trigger: Trigger<OnAdd, StateIdle>,
     mut cmd: Commands,
 ) {
-    info!("Trebuchet entered idle");
+    //info!("Trebuchet entered idle");
     cmd.entity(trigger.entity()).insert(
         Interval(Timer::new(Duration::from_secs(fastrand::u64(5..10)), TimerMode::Once))
     );
@@ -326,7 +328,7 @@ fn enter_tension(
         Link
     )).id();
     parts.link = Some(joint_id);
-    info!("trebuchet {:?} entered tension ", treb_e);
+    //info!("trebuchet {:?} entered tension ", treb_e);
 }
 
 // ---
@@ -348,7 +350,7 @@ fn do_tension(
             .remove::<StateTension>()
             .insert(StateArming)
             ;
-            info!("trebuchet {:?} exited tension  ", treb_e);
+            //info!("trebuchet {:?} exited tension  ", treb_e);
             continue;
         }
         let Some(link_e) = treb_parts.link else {
@@ -392,7 +394,13 @@ fn enter_arming(
         return;
     };
 
-    cmd.trigger(BallSpawn(t.translation.with_y(5.) - Vec3::Z * 12.));
+    cmd.trigger(ProjectleSpawn{
+        key: ProjectleKey::Ball,
+        pos: t.translation.with_y(5.) - Vec3::Z * 14.,
+        dir: None,
+        impulse: None,
+        lifetime: None
+    });
     
 }
 
@@ -432,12 +440,13 @@ fn do_arming(
                     .remove::<StateArming>()
                     .insert(StateLoose);
 
-                    cmd.entity(ball_e).insert(
-                        Interval(Timer::new(Duration::from_secs(fastrand::u64(15..25)), TimerMode::Once))
-                    )
+                    cmd.entity(ball_e)
+                    // .insert(
+                    //     Interval(Timer::new(Duration::from_secs(fastrand::u64(15..25)), TimerMode::Once))
+                    // )
                     .insert(LinearVelocity(Vec3::ZERO))
                     ;
-                    // info!("trebuchet {:?} armed ", p);
+                    // //info!("trebuchet {:?} armed ", p);
                 }
             }
             
@@ -471,7 +480,12 @@ fn do_loose(
         let to_se = (se_t.translation() - center).normalize();
         let dot = to_se.dot(Vec3::Y);
         if dot > UNHOOKING_DOT {
-            cmd.entity(link_j.entity2).insert(Targetable);
+            cmd.entity(link_j.entity2).insert((
+                Targetable,
+                Released,
+                LifeTime(Timer::new(Duration::from_secs(fastrand::u64(15..20)), TimerMode::Once))
+            ));
+
             cmd.entity(link).despawn();
             cmd.entity(treb_e)
             .remove::<StateLoose>()

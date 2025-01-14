@@ -1,3 +1,5 @@
+use bevy::input::keyboard::KeyboardInput;
+use bevy::input::mouse::MouseMotion;
 use bevy::prelude::*;
 use bevy::core_pipeline::Skybox;
 use bevy::render::camera::{Exposure, PhysicalCameraParameters};
@@ -11,6 +13,7 @@ impl Plugin for CameraPlugin {
         app
         .add_systems(Startup, spawn) 
         .add_plugins(PanOrbitCameraPlugin)
+        // .add_systems(Update, temp.run_if(on_event::<KeyboardInput>))
         ;
     }
 } 
@@ -32,8 +35,8 @@ fn spawn (
             hdr: true,
             ..default()
         },
-        // Transform::from_xyz(5., 10., -200.).looking_to(Vec3::new(-50., 10., -200.), Vec3::Y),
-        Transform::from_xyz(5., 10., -0.).looking_to(Vec3::new(-50., 10., -200.), Vec3::Y),
+
+        Transform::from_xyz(148., 122., 158.),
         Exposure::from_physical_camera(PhysicalCameraParameters{
             sensitivity_iso: 80.,
             ..default()
@@ -45,7 +48,7 @@ fn spawn (
         },
         PanOrbitCamera {
             enabled: true,
-            focus: Vec3::new(4., 10., 0.),
+            focus: Vec3::new(0., 10., -120.),
             ..default()
         },
         Cam,
@@ -53,3 +56,11 @@ fn spawn (
 }
 
 // ---
+
+// fn temp(
+// cam: Single<&Transform, With<Cam>>
+
+// ) {
+//     println!("{:?}", cam.into_inner());
+
+// }

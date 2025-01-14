@@ -10,7 +10,7 @@ use bevy::{
 };
 use avian3d::{
     prelude::{
-        // PhysicsDebugPlugin, 
+        PhysicsDebugPlugin, 
         RigidBody
     }, 
     PhysicsPlugins
@@ -22,13 +22,16 @@ mod shared;
 mod camera;
 mod env;
 mod trebuchet;
-mod ball;
+// mod ball;
 mod field;
 // mod dummies;
+// mod dummy_ball;
 mod fortress;
 mod radar;
 mod animator;
 mod turret;
+// mod bullet;
+mod projectle;
 
 // ---
 
@@ -64,20 +67,33 @@ fn main() {
                 ..default()
             },
         ),
+        // .set(
+        //     LogPlugin {
+        //         level: Level::INFO,
+        //         filter: "wgpu=error,naga=warn,bevy_gltf_components::ronstring_to_reflect_component=error,avian3d::collision::narrow_phase=error,wgpu_hal::vulkan::instance=error".to_string(),
+        //         ..default()
+        //     }
+        // )
+
         PhysicsPlugins::default(),
         // PhysicsDebugPlugin::default(),
         // WorldInspectorPlugin::new(),
         camera::CameraPlugin,
         env::EnvPlugin,
         trebuchet::TrebuchetPlugin,
-        // trebuchet_loader::TrebuchetLoaderPlugin,
-        ball::BallPlugin,
+        
         field::FieldPlugin,
         // dummies::DummiesPlugin,
         fortress::FortressPlugin,
         radar:: RadarPlugin,
         animator::AnimatorPlugin,
-        turret::TurretPlugin
+        turret::TurretPlugin,
+        projectle::ProjectlePlugin,
+        // ball::BallPlugin,
+        // bullet::BulletPlugin
+        // dummy_ball::DBallPlugin,
+ 
+
 
     ))
     .init_state::<GameState>()

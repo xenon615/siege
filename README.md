@@ -16,3 +16,6 @@ Well, then, we'll take a little bit of Bevy, a little bit of Avian3d and a littl
 
 ![Scene](img/image-1.png)
 
+## Credits
+Very usefull thing [Bevy Pan/Orbit Camera](https://github.com/Plonq/bevy_panorbit_camera)
+

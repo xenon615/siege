@@ -22,7 +22,7 @@ bevy_panorbit_camera= "0.21.2"
 fastrand = "2.1.1"
 
 [dependencies.bevy]
-version = "0.15.0"
+version = "0.15.1"
 
 default-features = false
 features = [
