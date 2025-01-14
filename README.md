@@ -14,13 +14,13 @@ Then we'll draw this thing in Blender.
 Well, then, we'll take a little bit of Bevy, a little bit of Avian3d and a little bit of our brains (just a little bit ;)).  
 
 ## Part 2: Fortress
-We'll just build it out of bricks (we need it to fall apart on impact)  
-![alt text](img/fortress.png)
+We'll just build it out of bricks (we need it to fall apart on impact)    
+![Fortress](img/fortress.png)
 
 ## Part 3: AntiTrebuchetDefenseSystem 
-A defenseless fortress is a very pitiful thing. So we need a radar to detect enemy shells and a turret to shoot them down.
-![alt text](img/radar.png) 
-![alt text](imp/turret.png)
+A defenseless fortress is a very pitiful thing. So we need a radar to detect enemy shells and a turret to shoot them down.  
+![Radar](img/radar.png) 
+![Turret](img/turret.png)
 
 <a href="https://xenon615.github.io/siege/" target="_blank">Demo</a>  
 
