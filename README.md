@@ -19,16 +19,17 @@ We'll just build it out of bricks (we need it to fall apart on impact)
 
 ## Part 3: AntiTrebuchetDefenseSystem :)
 A defenseless fortress is a very pitiful thing. So we need a radar to detect enemy shells and a turret to shoot them down.  
-_Masterfully drawn, huh? :)_
-
+_Masterfully drawn, huh? :)_  
 
 ![Radar](img/radar.png) 
 ![Turret](img/turret.png)  
 
 _I must note that the percentage of hits on enemy shells depends on how drunk the operator is. :)_  
+
 ![Note](img/note.png)
 
 ![Scene](img/scene.png)
+
 <a href="https://xenon615.github.io/siege/" target="_blank">Demo</a>  
 
 ## Credits
