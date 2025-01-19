@@ -1,6 +1,9 @@
 use std::time::Duration;
 
-use bevy::{gizmos, prelude::*};
+use bevy::{
+    // gizmos, 
+    prelude::*
+};
 use avian3d::prelude::*;
 use bevy::scene::SceneInstanceReady;
 
@@ -122,7 +125,7 @@ fn startup(
         ))
         .observe(explore)
         ;
-        //info!("Trebuchet spawned");
+        // info!("Trebuchet spawned");
     }
 }
 
@@ -158,7 +161,7 @@ fn explore(
         }
     }
     cmd.entity(tr.entity()).insert(parts);
-    //info!("Trebuchet explored");
+    // info!("Trebuchet explored");
 }
 
 // ---
@@ -281,7 +284,7 @@ fn setup(
     ));
 
     cmd.entity(treb_e).remove::<NotReady>();
-    //info!("Trebuchet ready");
+    // info!("Trebuchet ready");
     
 } 
 
@@ -302,7 +305,7 @@ fn enter_idle(
     trigger: Trigger<OnAdd, StateIdle>,
     mut cmd: Commands,
 ) {
-    //info!("Trebuchet entered idle");
+    // info!("Trebuchet entered idle");
     cmd.entity(trigger.entity()).insert(
         Interval(Timer::new(Duration::from_secs(fastrand::u64(5..10)), TimerMode::Once))
     );
@@ -328,7 +331,7 @@ fn enter_tension(
         Link
     )).id();
     parts.link = Some(joint_id);
-    //info!("trebuchet {:?} entered tension ", treb_e);
+    // info!("trebuchet {:?} entered tension ", treb_e);
 }
 
 // ---
@@ -343,16 +346,17 @@ fn do_tension(
         let Ok(arm_t) = arm_q.get(treb_parts.arm) else {
             continue;
         };
-
+        
         let arm_long_end_y = (arm_t.translation - arm_t.forward() * ARM_DIM.z * 0.5).y;
         if arm_long_end_y  < ARM_LONG_END_Y {
             cmd.entity(treb_e)
             .remove::<StateTension>()
             .insert(StateArming)
             ;
-            //info!("trebuchet {:?} exited tension  ", treb_e);
+            // info!("trebuchet {:?} exited tension  ", treb_e);
             continue;
         }
+
         let Some(link_e) = treb_parts.link else {
             continue;
         };
@@ -362,7 +366,6 @@ fn do_tension(
         let Some(limits) = joint.length_limits else {
             continue;
         };
-
         let j = DistanceJoint::new(joint.entity1, joint.entity2)
                 .with_local_anchor_1(joint.local_anchor1);
 
@@ -446,7 +449,7 @@ fn do_arming(
                     // )
                     .insert(LinearVelocity(Vec3::ZERO))
                     ;
-                    // //info!("trebuchet {:?} armed ", p);
+                    // info!("trebuchet {:?} armed ", p);
                 }
             }
             

@@ -2,11 +2,11 @@
 use bevy::{
     // log::{Level, LogPlugin}, 
     prelude::*, 
-    window::{
-        // WindowMode, 
-        WindowPosition, 
-        WindowResolution
-    }
+    // window::{
+    //     // WindowMode, 
+    //     WindowPosition, 
+    //     WindowResolution
+    // }
 };
 use avian3d::{
     prelude::{
@@ -109,7 +109,7 @@ fn check_ready(
     mut next: ResMut<NextState<GameState>>,
 ) {
     if not_ready_q.is_empty() {
-        println!("GAME!");
+        info!("GAME!");
         next.set(GameState::Game);
     } 
 }

@@ -29,7 +29,7 @@ fn startup(
     assets: ResMut<AssetServer>,
     fp: Res<FortressPosition>
 ) {
-    cmd.spawn((NotReady, FortressTMP));
+    cmd.spawn((NotReady, FortressTMP, Name::new("Fortress")));
     cmd.spawn((
         SceneRoot(assets.load(GltfAssetLabel::Scene(0).from_asset("models/fortress.glb"))),
         Transform::from_translation(fp.0),   
@@ -54,8 +54,8 @@ fn setup (
         if let Ok(name) = name_q.get(c) {
             if name.starts_with("brick") || name.starts_with("disk") || name.starts_with("pillar") || name.starts_with("roof") {
                 cmd.entity(c).insert((
-                    RigidBody::Dynamic,
-                    // RigidBody::Static,
+                    // RigidBody::Dynamic,
+                    RigidBody::Static,
                     ColliderDensity(0.1),
                     Friction::new(0.1)
                 ));

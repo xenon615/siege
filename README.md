@@ -30,7 +30,7 @@ _I must note that the percentage of hits on enemy shells depends on how drunk th
 
 ![Scene](img/scene.png)
 
-<a href="https://xenon615.github.io/siege/" target="_blank">Demo(very slow at the moment)</a>  
+<!-- <a href="https://xenon615.github.io/siege/" target="_blank">Demo(very slow at the moment)</a>   -->
 
 ## Credits
 __Plong__, for very usefull thing which helped me a lot  
